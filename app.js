@@ -1,13 +1,16 @@
 // --- STATE MANAGEMENT ---
 let currentScenario = {};
 let scenarioHistory = [];
+let lastCorrectChoices = []; // История последних правильных ответов для разнообразия
+
 // GAME_STATE сделан глобальным для доступа из HTML
 window.GAME_STATE = {
     mode: 'menu', // 'endless', 'survival', 'menu'
     lives: 5,
     maxLives: 5,
     isActive: false,
-    isProcessing: false // Флаг для предотвращения действий во время загрузки/анимации
+    isProcessing: false, // Флаг для предотвращения действий во время загрузки/анимации
+    performanceStreak: 0 // НОВОЕ: Отслеживает серию правильных ответов для адаптивной сложности
 };
 
 // --- DOM ELEMENTS (Consolidated) ---
@@ -50,10 +53,10 @@ function scrollToBottom() {
 
 // Кэшируем SVG иконок для производительности
 const ICONS = {
-    // Иконка водителя (Руль) - сохраняем оригинальный дизайн
-    driver: `<div class="driver-icon w-8 h-8 rounded-full bg-dark-border border-2 border-slate-600 flex items-center justify-center mr-3 flex-shrink-0 shadow-md">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+    // Иконка водителя. Добавлен mt-1 для выравнивания с бейджем статуса.
+    driver: `<div class="driver-icon w-8 h-8 rounded-full bg-dark-border border-2 border-slate-600 flex items-center justify-center mr-3 flex-shrink-0 shadow-md mt-1">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2C9.38 2 7.25 4.13 7.25 6.75c0 2.57 2.01 4.65 4.63 4.74.08-.01.16-.01.22 0h.07a4.738 4.738 0 004.58-4.74C16.75 4.13 14.62 2 12 2zM17.08 14.15c-2.79-1.86-7.34-1.86-10.15 0-1.27.85-1.97 2-1.97 3.23s.7 2.37 1.96 3.21C8.32 21.53 10.16 22 12 22c1.84 0 3.68-.47 5.08-1.41 1.26-.85 1.96-1.99 1.96-3.23-.01-1.23-.7-2.37-1.96-3.21z"/>
     </svg>
 </div>`,
     // Иконка поддержки (Чат) - Представляет пользователя
@@ -70,20 +73,17 @@ const ICONS = {
  * Показывает главное меню и сбрасывает состояние игры.
  */
 function showMainMenu() {
-    // Убедимся, что элементы загружены (на случай вызова до DOMContentLoaded)
     if (!Elements.gameUI) return;
 
     // Скрываем игровой интерфейс
     Elements.gameUI.classList.add('hidden');
-    Elements.gameUI.classList.remove('flex'); // Убедимся, что flex удален
+    Elements.gameUI.classList.remove('flex');
 
     // Показываем меню
     Elements.mainMenu.classList.remove('hidden');
-    // Небольшая задержка для плавности анимации opacity
     setTimeout(() => {
         Elements.mainMenu.style.opacity = '1';
     }, 10);
-
 
     Elements.feedbackArea.classList.add('hidden');
     Elements.feedbackArea.classList.remove('flex');
@@ -91,6 +91,7 @@ function showMainMenu() {
     GAME_STATE.isActive = false;
     GAME_STATE.isProcessing = false;
     GAME_STATE.mode = 'menu';
+    GAME_STATE.performanceStreak = 0; // Сброс серии
     // Сброс бейджа в заголовке
     Elements.modeBadge.textContent = 'Меню';
     Elements.modeBadge.className = 'px-3 py-1 rounded-lg text-sm font-semibold uppercase tracking-wider border bg-dark-ui text-slate-400 border-dark-border';
@@ -98,34 +99,35 @@ function showMainMenu() {
 }
 
 /**
- * Добавляет подтверждение перед выходом из активной смены.
+ * УЛУЧШЕНО: Добавляет подтверждение перед выходом из активной смены.
  */
 function confirmExit() {
-    console.log('confirmExit called. State:', GAME_STATE);
-    // Разрешаем выход даже если идет обработка (isProcessing), чтобы пользователь не застрял
-    if (GAME_STATE.isActive) {
-        console.log('Game active. Requesting confirmation.');
+    // Запрашиваем подтверждение, только если игра активна и не находится в процессе обработки
+    if (GAME_STATE.isActive && !GAME_STATE.isProcessing) {
         if (confirm("Вы уверены, что хотите закончить смену? Прогресс будет потерян.")) {
-            console.log('User confirmed exit.');
             showMainMenu();
-        } else {
-            console.log('User cancelled exit.');
         }
     } else if (GAME_STATE.mode !== 'menu') {
-        console.log('Game not active or processing, but mode is not menu. Forcing exit.');
+        // Если игра не активна (например, Game Over) или в процессе загрузки, выходим сразу
         showMainMenu();
-    } else {
-        console.log('Exit condition not met.');
     }
 }
 
 function startGame(mode) {
     if (GAME_STATE.isProcessing) return;
 
+     // Проверка наличия сценариев перед стартом
+     if (typeof BASE_SCENARIOS === 'undefined' || !Array.isArray(BASE_SCENARIOS) || BASE_SCENARIOS.length === 0) {
+        alert("Ошибка: Сценарии не загружены. Невозможно начать игру. Проверьте файл scenarios.js");
+        return;
+    }
+
     GAME_STATE.mode = mode;
     GAME_STATE.isActive = true;
     scenarioHistory = [];
-    GAME_STATE.isProcessing = true; // Ставим флаг обработки на время перехода
+    lastCorrectChoices = [];
+    GAME_STATE.performanceStreak = 0;
+    GAME_STATE.isProcessing = true;
 
     // Плавное скрытие меню
     Elements.mainMenu.style.opacity = '0';
@@ -137,7 +139,6 @@ function startGame(mode) {
 
         setupUIMode(mode);
         loadNextScenario();
-        // GAME_STATE.isProcessing сбрасывается в конце loadNextScenario
     }, 500);
 }
 
@@ -145,7 +146,7 @@ function setupUIMode(mode) {
     // Настройка UI в зависимости от режима
     Elements.modeBadge.className = 'px-3 py-1 rounded-lg text-sm font-semibold uppercase tracking-wider border';
 
-    // Сброс кнопок (на случай перезапуска после Game Over)
+    // Сброс кнопок
     Elements.nextBtn.classList.remove('hidden');
     Elements.restartBtn.classList.add('hidden');
     Elements.menuBtn.classList.add('hidden');
@@ -155,8 +156,7 @@ function setupUIMode(mode) {
         Elements.modeBadge.classList.add('bg-dark-ui', 'text-slate-300', 'border-dark-border');
         Elements.livesContainer.classList.add('hidden');
     } else if (mode === 'survival') {
-        Elements.modeBadge.textContent = 'Ограниченные попытки';
-        // Используем Purple для режима "Час пик"
+        Elements.modeBadge.textContent = 'Час пик'; // Используем название "Час пик"
         Elements.modeBadge.classList.add('bg-purple-900/50', 'text-purple-300', 'border-purple-700');
         GAME_STATE.maxLives = 5;
         GAME_STATE.lives = GAME_STATE.maxLives;
@@ -167,7 +167,6 @@ function setupUIMode(mode) {
 
 /**
  * Обновляет визуальное отображение жизней (рейтинга).
- * Оптимизация: используем DocumentFragment для минимизации перерисовок DOM.
  */
 function updateLivesDisplay() {
     const fragment = document.createDocumentFragment();
@@ -189,46 +188,167 @@ function updateLivesDisplay() {
 }
 
 /**
- * Отображает сообщение в окне чата с соответствующим стилем.
+ * УЛУЧШЕНО: Отображает сообщение в окне чата с улучшенной визуализацией статуса.
  */
-function displayMessage(from, text) {
+function displayMessage(from, text, status = null, driverName = null) {
     const messageElement = document.createElement('div');
-    messageElement.classList.add('flex', 'mb-4', 'animate-fade-in');
+    // Добавляем items-start для выравнивания иконки по верху блока сообщения
+    messageElement.classList.add('flex', 'mb-4', 'animate-fade-in', 'items-start');
 
     const textElement = document.createElement('div');
     textElement.classList.add('chat-bubble', 'p-3', 'rounded-2xl', 'max-w-lg', 'shadow-lg', 'text-sm', 'break-words');
-    textElement.textContent = text;
 
-    // --- Стилизация в зависимости от отправителя ---
+    // --- Стилизация и контент в зависимости от отправителя ---
 
     if (from === 'driver') {
-        messageElement.classList.add('justify-start');
+        // Стили пузыря водителя (Темный UI)
+        textElement.classList.add('bg-dark-ui', 'text-slate-100', 'border', 'border-dark-border');
+
+        // Добавление имени водителя
+        if (driverName) {
+            const nameSpan = document.createElement('span');
+            nameSpan.classList.add('font-bold', 'text-accent-yellow');
+            nameSpan.textContent = driverName + ': ';
+            textElement.appendChild(nameSpan);
+        }
+        const textSpan = document.createElement('span');
+        textSpan.textContent = text;
+        textElement.appendChild(textSpan);
+
+        // Иконка водителя слева
         messageElement.innerHTML = ICONS.driver;
-        // Темный пузырь для водителя
-        textElement.classList.add('bg-dark-ui', 'text-slate-100', 'rounded-tl-sm', 'border', 'border-dark-border');
-        messageElement.appendChild(textElement);
+
+        // Обёртка для бейджа (статуса) и текста
+        const contentWrapper = document.createElement('div');
+        contentWrapper.classList.add('flex', 'flex-col', 'items-start');
+
+        // Статус (Бейдж) отображается над сообщением
+        if (status) {
+            const badge = document.createElement('span');
+            // Делаем бейдж более заметным и стилизованным
+            badge.className = 'text-xs font-semibold mb-2 px-2 py-0.5 rounded-full shadow-md';
+
+            if (status === 'active') {
+                badge.textContent = '✅ Действующий';
+                badge.classList.add('text-green-300', 'bg-green-900/70');
+            } else {
+                badge.textContent = '❌ Не зарегистрирован';
+                badge.classList.add('text-red-300', 'bg-red-900/70');
+            }
+            contentWrapper.appendChild(badge);
+        }
+
+        contentWrapper.appendChild(textElement);
+        messageElement.appendChild(contentWrapper);
+
     } else if (from === 'support') {
-        // Используется, чтобы показать выбор пользователя в чате
+        // Сообщение пользователя (поддержки) справа
         messageElement.classList.add('justify-end');
-        // Акцентный цвет пузыря для поддержки (пользователя)
-        textElement.classList.add('bg-accent-cyan', 'text-gray-900', 'font-medium', 'rounded-tr-sm');
+        // Используем accent-cyan для консистентности
+        textElement.classList.add('bg-accent-cyan', 'text-gray-900', 'font-medium');
+        textElement.textContent = text;
         messageElement.appendChild(textElement);
         messageElement.innerHTML += ICONS.support;
+
     } else if (from === 'system') {
         // Системные сообщения центрированы
         messageElement.classList.add('justify-center', 'w-full');
         textElement.classList.add('bg-slate-800/50', 'text-xs', 'text-slate-400', 'font-semibold', 'uppercase', 'tracking-wider', 'p-2', 'rounded-lg', 'shadow-none', 'border', 'border-dashed', 'border-slate-700');
+        textElement.textContent = text;
         messageElement.appendChild(textElement);
     }
 
     Elements.chatWindow.appendChild(messageElement);
 }
 
+// --- НОВЫЕ ФУНКЦИИ: Движок Динамических Правил ---
+
 /**
- * Загружает новый сценарий и запускает асинхронное отображение сообщений.
+ * НОВОЕ: Предсказывает правильный выбор для сценария, оценивая его dynamicRules.
+ * Используется для умной рандомизации до начала сценария.
+ */
+function predictScenarioChoice(scenario) {
+    let predictedChoice = scenario.correctChoice;
+
+    // Проверяем наличие массива dynamicRules в сценарии
+    if (scenario.dynamicRules && Array.isArray(scenario.dynamicRules)) {
+        for (const rule of scenario.dynamicRules) {
+            try {
+                let conditionMet = false;
+
+                // Условие на основе функции (для сложной логики, определенной в scenarios.js)
+                if (typeof rule.condition === 'function') {
+                    if (rule.condition(scenario)) {
+                        conditionMet = true;
+                    }
+                }
+                // Условие на основе объекта (простое сопоставление ключ-значение)
+                else if (typeof rule.condition === 'object' && rule.condition !== null) {
+                    // Проверяем, что все ключи в условии совпадают со свойствами сценария
+                    const matches = Object.keys(rule.condition).every(key => scenario[key] === rule.condition[key]);
+                    if (matches) {
+                        conditionMet = true;
+                    }
+                }
+
+                if (conditionMet) {
+                    predictedChoice = rule.overrideChoice;
+                    break; // Останавливаемся после первого совпавшего правила
+                }
+
+            } catch (error) {
+                console.error(`Error predicting choice for scenario ${scenario.id}:`, error);
+            }
+        }
+    }
+    return predictedChoice;
+}
+
+/**
+ * НОВОЕ: Оценивает результат выбора для данного сценария с учетом dynamicRules.
+ */
+function evaluateScenarioOutcome(scenario, choice) {
+    let expectedChoice = scenario.correctChoice;
+    let feedback = scenario.feedback;
+
+    // 1. Проверяем динамические правила (используя ту же логику, что и в predictScenarioChoice)
+    if (scenario.dynamicRules && Array.isArray(scenario.dynamicRules)) {
+        for (const rule of scenario.dynamicRules) {
+            try {
+                let conditionMet = false;
+                if (typeof rule.condition === 'function' && rule.condition(scenario)) {
+                    conditionMet = true;
+                } else if (typeof rule.condition === 'object' && rule.condition !== null) {
+                    const matches = Object.keys(rule.condition).every(key => scenario[key] === rule.condition[key]);
+                    if (matches) {
+                        conditionMet = true;
+                    }
+                }
+
+                if (conditionMet) {
+                    expectedChoice = rule.overrideChoice;
+                    // Используем переопределенную обратную связь, если она есть
+                    feedback = rule.overrideFeedback || feedback;
+                    break; // Останавливаемся после первого совпадения
+                }
+
+            } catch (error) {
+                console.error(`Error evaluating dynamic rule for scenario ${scenario.id}:`, error);
+            }
+        }
+    }
+
+    // 2. Определяем правильность
+    const isCorrect = (choice === expectedChoice);
+
+    return { isCorrect, feedback, expectedChoice };
+}
+
+
+/**
+ * УЛУЧШЕНО: Загружает новый сценарий с Адаптивной сложностью и Умной рандомизацией.
  */
 async function loadNextScenario() {
-    // Убедимся, что игра активна (могла закончиться после последнего сценария)
     if (!GAME_STATE.isActive) {
         GAME_STATE.isProcessing = false;
         return;
@@ -238,38 +358,98 @@ async function loadNextScenario() {
 
     // Сброс UI
     Elements.chatWindow.innerHTML = '';
-    Elements.chatWindow.classList.add('opacity-50'); // Затемняем во время загрузки
+    Elements.chatWindow.classList.add('opacity-50');
     Elements.feedbackArea.classList.add('hidden');
     Elements.feedbackArea.classList.remove('flex');
     Elements.actionButtonsDiv.classList.add('hidden');
     Elements.actionButtonsDiv.classList.remove('grid');
 
-    // Логика выбора сценария (Использует BASE_SCENARIOS из scenarios.js)
-    // Проверка на случай, если scenarios.js не загрузился или пуст
-    if (typeof BASE_SCENARIOS === 'undefined' || !Array.isArray(BASE_SCENARIOS) || BASE_SCENARIOS.length === 0) {
-        console.error("BASE_SCENARIOS is not defined or empty. Check if scenarios.js is loaded.");
-        displayMessage('system', 'Ошибка загрузки сценариев. Проверьте файл scenarios.js');
-        GAME_STATE.isProcessing = false;
-        Elements.chatWindow.classList.remove('opacity-50');
-        return;
-    }
+    // Базовая проверка наличия сценариев
+    if (BASE_SCENARIOS.length === 0) return;
 
     let availableScenarios = BASE_SCENARIOS.filter(s => !scenarioHistory.includes(s.id));
 
     // Если все сценарии использованы, сбрасываем историю
     if (availableScenarios.length === 0) {
-        // Добавляем системное сообщение о сбросе
         if (scenarioHistory.length > 0) {
             displayMessage('system', 'Все сценарии пройдены. Начинаем заново.');
             await delay(1500);
-            Elements.chatWindow.innerHTML = ''; // Очищаем чат после сообщения
+            Elements.chatWindow.innerHTML = '';
         }
         scenarioHistory = [];
+        lastCorrectChoices = [];
+        GAME_STATE.performanceStreak = 0; // Сбрасываем серию при обновлении пула сценариев
         availableScenarios = [...BASE_SCENARIOS];
     }
 
-    currentScenario = availableScenarios[Math.floor(Math.random() * availableScenarios.length)];
+    // --- ЛОГИКА АДАПТИВНОЙ СЛОЖНОСТИ ---
+    let targetDifficulty = 1; // По умолчанию (Easy)
+
+    // Определение целевой сложности на основе серии правильных ответов
+    if (GAME_STATE.performanceStreak >= 5) {
+        targetDifficulty = 3; // Hard (5 правильных подряд)
+    } else if (GAME_STATE.performanceStreak >= 2) {
+        targetDifficulty = 2; // Medium (2 правильных подряд)
+    }
+
+    // Фильтруем сценарии по целевой сложности (если difficulty не указано, считаем его 1)
+    let difficultyFilteredScenarios = availableScenarios.filter(s => (s.difficulty || 1) === targetDifficulty);
+
+    // Интеллектуальный откат (Fallback), если нет сценариев нужной сложности
+    if (difficultyFilteredScenarios.length === 0) {
+        // Пытаемся найти сценарии близкие по сложности
+        if (targetDifficulty === 3) {
+            // Если нет Hard, ищем Medium, затем Easy
+            difficultyFilteredScenarios = availableScenarios.filter(s => (s.difficulty || 1) === 2);
+            if (difficultyFilteredScenarios.length === 0) {
+                difficultyFilteredScenarios = availableScenarios.filter(s => (s.difficulty || 1) === 1);
+            }
+        }
+        else if (targetDifficulty === 2) {
+             // Если нет Medium, в первую очередь ищем Hard, затем Easy
+             difficultyFilteredScenarios = availableScenarios.filter(s => (s.difficulty || 1) === 3);
+             if (difficultyFilteredScenarios.length === 0) {
+                difficultyFilteredScenarios = availableScenarios.filter(s => (s.difficulty || 1) === 1);
+            }
+        }
+        // Если после всех попыток ничего не найдено, используем то, что осталось.
+        if (difficultyFilteredScenarios.length === 0) {
+            difficultyFilteredScenarios = availableScenarios;
+        }
+    }
+
+
+    // --- УМНАЯ РАНДОМИЗАЦИЯ (Применяется к отфильтрованному по сложности списку) ---
+    let preferredScenarios = difficultyFilteredScenarios;
+
+    // Пытаемся избежать повторения последних 2 ответов
+    if (lastCorrectChoices.length >= 2) {
+        const recentChoices = lastCorrectChoices.slice(-2);
+
+        // Используем predictScenarioChoice для учета динамических правил при фильтрации!
+        preferredScenarios = difficultyFilteredScenarios.filter(s => {
+            const predictedChoice = predictScenarioChoice(s);
+            return !recentChoices.includes(predictedChoice);
+        });
+
+        // Если после фильтрации ничего не осталось, используем полный список (отфильтрованный по сложности)
+        if (preferredScenarios.length === 0) {
+            preferredScenarios = difficultyFilteredScenarios;
+        }
+    }
+
+    // Выбор сценария
+    currentScenario = preferredScenarios[Math.floor(Math.random() * preferredScenarios.length)];
     scenarioHistory.push(currentScenario.id);
+
+    // Обновляем историю правильных ответов, используя предсказание
+    const finalExpectedChoice = predictScenarioChoice(currentScenario);
+    lastCorrectChoices.push(finalExpectedChoice);
+
+    // Ограничиваем длину истории
+    if (lastCorrectChoices.length > 5) {
+        lastCorrectChoices.shift();
+    }
 
     Elements.chatWindow.classList.remove('opacity-50'); // Восстанавливаем яркость
 
@@ -278,34 +458,39 @@ async function loadNextScenario() {
         if (!GAME_STATE.isActive) break; // Stop if game exited
         if (!message.text) continue;
 
-        // Показываем индикатор печати, если сообщение не системное
+        // Показываем индикатор печати...
         if (message.from !== 'system') {
             Elements.typingIndicator.classList.remove('hidden');
             scrollToBottom();
-            // Симуляция времени печати на основе длины сообщения
             await delay(500 + Math.min(message.text.length * 25, 2000));
             Elements.typingIndicator.classList.add('hidden');
         }
 
-        if (!GAME_STATE.isActive) break; // Check again after delay
+        if (!GAME_STATE.isActive) break;
 
-        displayMessage(message.from, message.text);
+        displayMessage(
+            message.from,
+            message.text,
+            (message.from === 'driver' ? currentScenario.status : null),
+            (message.from === 'driver' ? currentScenario.driverName : null)
+        );
         scrollToBottom();
 
-        // Небольшая задержка между сообщениями
         await delay(300);
     }
 
-    // Показываем кнопки действий после отображения всех сообщений
-    Elements.actionButtonsDiv.classList.remove('hidden');
-    Elements.actionButtonsDiv.classList.add('grid');
-    scrollToBottom();
+    // Показываем кнопки действий
+    if (GAME_STATE.isActive) {
+        Elements.actionButtonsDiv.classList.remove('hidden');
+        Elements.actionButtonsDiv.classList.add('grid');
+        scrollToBottom();
+    }
 
     GAME_STATE.isProcessing = false;
 }
 
 /**
- * Обрабатывает выбор пользователя и предоставляет обратную связь.
+ * УЛУЧШЕНО: Обрабатывает выбор пользователя, используя систему оценки динамических правил.
  */
 async function handleChoice(choice) {
     if (GAME_STATE.isProcessing || !GAME_STATE.isActive) return;
@@ -316,7 +501,7 @@ async function handleChoice(choice) {
     Elements.actionButtonsDiv.classList.add('hidden');
     Elements.actionButtonsDiv.classList.remove('grid');
 
-    // Отображаем выбор пользователя как сообщение от поддержки
+    // Отображаем выбор пользователя
     const choiceTextMap = {
         'handle': '🔧 Обрабатываю запрос (Техподдержка/Финансы)',
         'distributor': '➡️ Перенаправляю (Распределятор)',
@@ -326,26 +511,27 @@ async function handleChoice(choice) {
     displayMessage('support', choiceTextMap[choice] || 'Выбрано действие...');
     scrollToBottom();
 
-    // Небольшая задержка перед показом результата
     await delay(1200);
 
-    const isCorrect = (choice === currentScenario.correctChoice);
-    let isGameOver = false;
+    // Используем функцию оценки для определения результата (с учетом динамических правил)
+    const { isCorrect, feedback } = evaluateScenarioOutcome(currentScenario, choice);
 
-    let feedbackMessage = currentScenario.feedback;
+    let isGameOver = false;
+    let feedbackMessage = feedback;
 
     // Настройка UI обратной связи
-    // Сброс классов границ
     Elements.feedbackCard.className = 'max-w-md w-full bg-dark-ui p-8 rounded-3xl shadow-2xl border-4';
 
     if (isCorrect) {
         Elements.feedbackIcon.textContent = '✅';
         Elements.feedbackTitle.textContent = 'Отлично!';
         Elements.feedbackCard.classList.add('border-green-500');
+        GAME_STATE.performanceStreak++; // Увеличиваем серию правильных ответов
     } else {
         Elements.feedbackIcon.textContent = '❌';
         Elements.feedbackTitle.textContent = 'Неправильно';
         Elements.feedbackCard.classList.add('border-red-500');
+        GAME_STATE.performanceStreak = 0; // Сбрасываем серию при ошибке
 
         // Логика режима выживания
         if (GAME_STATE.mode === 'survival') {
@@ -354,7 +540,6 @@ async function handleChoice(choice) {
 
             // Добавляем анимацию встряхивания
             Elements.livesContainer.classList.add('shake-animation');
-            // Надежно убираем анимацию после её завершения с помощью 'animationend'
             Elements.livesContainer.addEventListener('animationend', () => {
                 Elements.livesContainer.classList.remove('shake-animation');
             }, { once: true });
@@ -362,15 +547,15 @@ async function handleChoice(choice) {
 
             if (GAME_STATE.lives <= 0) {
                 isGameOver = true;
-                Elements.feedbackTitle.textContent = 'Смена провалена!';
-                feedbackMessage += '\n\n📉 Ваш рейтинг упал до критического уровня. Вы отстранены от работы.';
+                Elements.feedbackTitle.textContent = 'Конец смены!';
+                feedbackMessage += '\n\n📉 Ваш рейтинг упал до критического уровня. Попробуйте еще раз.';
             } else {
                 feedbackMessage += `\n\n⚠️ Рейтинг снижен. Осталось звезд: ${GAME_STATE.lives}`;
             }
         }
     }
 
-    // Настройка видимости кнопок в зависимости от Game Over
+    // Настройка видимости кнопок
     Elements.nextBtn.classList.toggle('hidden', isGameOver);
     Elements.restartBtn.classList.toggle('hidden', !isGameOver);
     Elements.menuBtn.classList.toggle('hidden', !isGameOver);

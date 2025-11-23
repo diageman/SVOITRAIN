@@ -17,17 +17,20 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: #1e293b; /* Slate-800 */
+    background: #1e293b;
+    /* Slate-800 */
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: #334155; /* Slate-700 */
+    background-color: #334155;
+    /* Slate-700 */
     border-radius: 4px;
     border: 2px solid #1e293b;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: #06b6d4; /* Cyan accent on hover */
+    background-color: #06b6d4;
+    /* Cyan accent on hover */
 }
 
 /* --- Animations & Effects --- */
@@ -38,21 +41,25 @@ body {
         opacity: 0;
         transform: translateY(15px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
+
 /* 3. Bounce In (For Feedback/Modals) */
 @keyframes bounceIn {
     0% {
         opacity: 0;
         transform: scale(0.8);
     }
+
     60% {
         opacity: 1;
         transform: scale(1.02);
     }
+
     100% {
         transform: scale(1);
     }
@@ -65,21 +72,42 @@ body {
 
 /* 4. Shake Animation (For Errors/Lives Lost) */
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-5px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(5px);
+    }
 }
 
 .shake-animation {
-    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
 }
 
 /* 5. Typing Indicator (Modern Bounce) */
 @keyframes typingBounce {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         transform: scale(0.8);
         opacity: 0.5;
     }
+
     40% {
         transform: scale(1.2);
         opacity: 1;
@@ -90,7 +118,8 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: #64748b; /* Slate-500 */
+    background-color: #64748b;
+    /* Slate-500 */
     animation: typingBounce 1.5s infinite;
 }
 
@@ -104,10 +133,13 @@ body {
 
 /* 6. Power LED Breathing (Оставлено для возможного использования) */
 @keyframes breathing-glow {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
         box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
     }
+
     50% {
         opacity: 0.6;
         box-shadow: 0 0 5px rgba(34, 197, 94, 0.4);
@@ -135,4 +167,9 @@ body {
     transform: translateY(0);
     box-shadow: 0 0 15px var(--glow-color, rgba(255, 255, 255, 0.3));
 }
-/* Конец файла - лишняя скобка, которая была в исходном файле, удалена */
+
+/* Chat Bubble Formatting */
+.chat-bubble {
+    white-space: pre-wrap;
+    /* Preserves newlines and spaces */
+}

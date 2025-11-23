@@ -1,325 +1,231 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тренажер ТП (Актуальные акции)</title>
+    <title>Тренажер СВОИ</title>
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        .driver-icon svg { width: 24px; height: 24px; fill: white; }
-        .chat-bubble { white-space: pre-wrap; word-wrap: break-word; }
-        body { font-family: 'Inter', sans-serif; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        .shake-animation { animation: shake 0.4s ease-in-out; }
-    </style>
-</head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal h-screen overflow-hidden">
-
-    <!-- MAIN MENU OVERLAY -->
-    <div id="main-menu" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center transform transition-all scale-100">
-            <div class="mb-6">
-                <div class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg relative overflow-hidden">
-                     <div class="absolute inset-0 bg-gradient-to-tr from-indigo-500 to-purple-500 opacity-80"></div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">Тренажер ТП</h1>
-                <p class="text-gray-500">Отработка навыков маршрутизации чатов в профильные отделы</p>
-            </div>
-
-            <div class="space-y-3">
-                <button onclick="startGame('endless')" class="w-full group relative bg-white border-2 border-blue-100 hover:border-blue-500 p-4 rounded-xl transition-all duration-200 hover:shadow-md text-left flex items-center">
-                    <div class="bg-blue-100 p-3 rounded-lg mr-4 group-hover:bg-blue-500 transition-colors duration-200">
-                        <span class="text-2xl group-hover:text-white transition-colors duration-200">∞</span>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800">Бесконечный режим</h3>
-                        <p class="text-xs text-gray-500">Отработка базовых кейсов</p>
-                    </div>
-                </button>
-
-                <button onclick="startGame('survival')" class="w-full group relative bg-white border-2 border-red-100 hover:border-red-500 p-4 rounded-xl transition-all duration-200 hover:shadow-md text-left flex items-center">
-                    <div class="bg-red-100 p-3 rounded-lg mr-4 group-hover:bg-red-500 transition-colors duration-200">
-                        <span class="text-2xl group-hover:text-white transition-colors duration-200">❤️</span>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800">На выживание</h3>
-                        <p class="text-xs text-gray-500">3 права на ошибку. Сложно!</p>
-                    </div>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="flex flex-col h-full">
-        <!-- Header -->
-        <header class="bg-white shadow-md sticky top-0 z-10 shrink-0">
-            <div class="container mx-auto max-w-4xl px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center">
-                    <h1 class="text-lg md:text-xl font-bold text-gray-800 mr-4">Симулятор Чата</h1>
-                    <span id="mode-badge" class="px-2 py-1 rounded text-xs font-bold uppercase bg-gray-200 text-gray-600">Меню</span>
-                </div>
-                
-                <div id="lives-container" class="hidden items-center bg-red-50 px-3 py-1 rounded-full border border-red-100">
-                    <span class="text-sm font-medium text-red-800 mr-2">Жизни:</span>
-                    <div id="hearts" class="flex space-x-1 text-xl"></div>
-                </div>
-                
-                <button onclick="showMainMenu()" class="text-sm text-gray-500 hover:text-gray-700 underline">В меню</button>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main class="flex-grow container mx-auto max-w-4xl p-2 md:p-4 flex flex-col overflow-hidden">
-            <div class="bg-white rounded-lg shadow-xl overflow-hidden flex flex-col h-full border border-gray-200 relative">
-                
-                <!-- Chat Window -->
-                <div id="chat-window" class="flex-grow p-4 overflow-y-auto bg-gray-50">
-                    <!-- Messages injected via JS -->
-                </div>
-
-                <!-- Action Area -->
-                <div id="action-area" class="shrink-0 bg-white border-t border-gray-200">
-                    
-                    <!-- Choice Buttons -->
-                    <div id="action-buttons" class="p-4 bg-gray-50">
-                        <h3 class="text-sm font-semibold mb-3 text-gray-500 uppercase tracking-wide text-center md:text-left">Выберите действие:</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                            <button onclick="handleChoice('handle')"
-                                class="w-full bg-white border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-bold py-3 px-2 rounded-lg transition duration-200 focus:outline-none text-sm leading-tight hover:shadow-md">
-                                Обработать<br>самостоятельно
-                            </button>
-                            <button onclick="handleChoice('distributor')"
-                                class="w-full bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 font-bold py-3 px-2 rounded-lg transition duration-200 focus:outline-none text-sm leading-tight hover:shadow-md">
-                                Перевести в<br>распределятор
-                            </button>
-                            <button onclick="handleChoice('leader')"
-                                class="w-full bg-white border-2 border-purple-500 text-purple-600 hover:bg-purple-50 font-bold py-3 px-2 rounded-lg transition duration-200 focus:outline-none text-sm leading-tight hover:shadow-md">
-                                Передать чат<br>руководителю
-                            </button>
-                            <button onclick="handleChoice('deal_negative')"
-                                class="w-full bg-white border-2 border-red-500 text-red-600 hover:bg-red-50 font-bold py-3 px-2 rounded-lg transition duration-200 focus:outline-none text-sm leading-tight hover:shadow-md">
-                                Передать<br>негатив (Сделка)
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Feedback Area -->
-                    <div id="feedback-area" class="p-6 bg-white hidden flex-col items-center text-center border-t-4">
-                        <div id="feedback-icon" class="text-5xl mb-2"></div>
-                        <h3 id="feedback-title" class="text-2xl font-bold mb-2"></h3>
-                        <p id="feedback-text" class="text-gray-700 mb-4 text-lg max-w-2xl"></p>
-                        
-                        <div class="flex flex-wrap justify-center gap-3">
-                            <button id="next-btn" onclick="loadNextScenario()"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full transition duration-200 shadow-lg transform hover:scale-105 flex items-center">
-                                Следующий
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                </svg>
-                            </button>
-
-                            <button id="restart-btn" onclick="startGame('survival')"
-                                class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition duration-200 shadow-lg transform hover:scale-105">
-                                Начать заново
-                            </button>
-                            <button id="menu-btn" onclick="showMainMenu()"
-                                class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full transition duration-200 shadow-lg transform hover:scale-105">
-                                Меню
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Импорт базы сценариев из отдельного файла -->
-    <script src="scenarios.js"></script>
-
     <script>
-        // --- STATE ---
-        let currentScenario = {};
-        let scenarioHistory = [];
-        let choiceHistory = [];
-        
-        const GAME_STATE = {
-            mode: 'endless', // 'endless', 'survival'
-            lives: 3,
-            maxLives: 3,
-            isActive: false
-        };
-
-        // --- DOM ELEMENTS ---
-        const mainMenu = document.getElementById('main-menu');
-        const chatWindow = document.getElementById('chat-window');
-        const actionButtonsDiv = document.getElementById('action-buttons');
-        const feedbackArea = document.getElementById('feedback-area');
-        const feedbackTitle = document.getElementById('feedback-title');
-        const feedbackText = document.getElementById('feedback-text');
-        const feedbackIcon = document.getElementById('feedback-icon');
-        const modeBadge = document.getElementById('mode-badge');
-        const livesContainer = document.getElementById('lives-container');
-        const heartsDiv = document.getElementById('hearts');
-        const nextBtn = document.getElementById('next-btn');
-        const restartBtn = document.getElementById('restart-btn');
-        const menuBtn = document.getElementById('menu-btn');
-
-        // --- GAME LOGIC ---
-
-        function showMainMenu() {
-            mainMenu.classList.remove('hidden');
-            GAME_STATE.isActive = false;
-        }
-
-        function startGame(mode) {
-            GAME_STATE.mode = mode;
-            GAME_STATE.isActive = true;
-            GAME_STATE.lives = GAME_STATE.maxLives;
-            
-            scenarioHistory = [];
-            choiceHistory = [];
-
-            mainMenu.classList.add('hidden');
-            
-            // UI Setup
-            livesContainer.classList.add('hidden');
-            modeBadge.className = 'px-2 py-1 rounded text-xs font-bold uppercase text-white';
-            
-            if (mode === 'endless') {
-                modeBadge.textContent = 'Бесконечный';
-                modeBadge.classList.add('bg-blue-500');
-            } else if (mode === 'survival') {
-                modeBadge.textContent = 'На выживание';
-                modeBadge.classList.add('bg-red-500');
-                livesContainer.classList.remove('hidden');
-                updateLivesDisplay();
-            }
-
-            loadNextScenario();
-        }
-
-        function updateLivesDisplay() {
-            heartsDiv.innerHTML = '';
-            for (let i = 0; i < GAME_STATE.maxLives; i++) {
-                if (i < GAME_STATE.lives) {
-                    heartsDiv.innerHTML += '<span class="text-red-500">❤️</span>';
-                } else {
-                    heartsDiv.innerHTML += '<span class="text-gray-300">🖤</span>';
-                }
-            }
-        }
-
-        function displayMessage(from, text) {
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('flex', 'mb-4', 'animate-fade-in');
-            
-            const textElement = document.createElement('div');
-            textElement.classList.add('chat-bubble', 'p-3', 'rounded-lg', 'max-w-xs', 'md:max-w-md', 'shadow-sm');
-            textElement.textContent = text;
-
-            const dIcon = `<div class="driver-icon w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center mr-3 flex-shrink-0 shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>`;
-            const sIcon = `<div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center mr-3 flex-shrink-0 font-bold text-xs shadow-sm">ТП</div>`;
-
-            if (from === 'driver') {
-                messageElement.classList.add('justify-start');
-                messageElement.innerHTML = dIcon;
-                textElement.classList.add('bg-gray-200', 'text-gray-800', 'rounded-tl-none');
-            } else { 
-                messageElement.classList.add('justify-end');
-                textElement.classList.add('bg-blue-500', 'text-white', 'rounded-tr-none');
-                messageElement.appendChild(textElement); 
-                messageElement.innerHTML += sIcon; 
-            }
-            
-            if (from === 'driver') {
-                 messageElement.appendChild(textElement);
-            }
-            
-            chatWindow.appendChild(messageElement);
-        }
-
-        function loadNextScenario() {
-            chatWindow.innerHTML = '';
-            feedbackArea.classList.add('hidden');
-            actionButtonsDiv.classList.remove('hidden');
-            feedbackArea.classList.remove('border-green-500', 'border-red-500');
-            
-            // Logic uses BASE_SCENARIOS from scenarios.js
-            let availableScenarios = BASE_SCENARIOS.filter(s => !scenarioHistory.includes(s.id));
-            if (availableScenarios.length === 0) {
-                scenarioHistory = [];
-                choiceHistory = [];
-                availableScenarios = [...BASE_SCENARIOS];
-            }
-            currentScenario = availableScenarios[Math.floor(Math.random() * availableScenarios.length)];
-            scenarioHistory.push(currentScenario.id);
-
-            choiceHistory.push(currentScenario.correctChoice);
-            if (choiceHistory.length > 10) choiceHistory.shift();
-
-            currentScenario.chat.forEach(message => {
-                displayMessage(message.from, message.text);
-            });
-
-            setTimeout(() => { chatWindow.scrollTop = chatWindow.scrollHeight; }, 100);
-        }
-
-        function handleChoice(choice) {
-            const isCorrect = (choice === currentScenario.correctChoice);
-            let isGameOver = false;
-
-            nextBtn.classList.remove('hidden');
-            restartBtn.classList.add('hidden');
-            menuBtn.classList.add('hidden');
-
-            if (isCorrect) {
-                feedbackTitle.textContent = 'Верно!';
-                feedbackTitle.className = 'text-2xl font-bold mb-2 text-green-600';
-                feedbackIcon.textContent = '✅';
-                feedbackArea.classList.add('border-green-500');
-                feedbackText.textContent = currentScenario.feedback;
-            } else {
-                feedbackTitle.textContent = 'Ошибка!';
-                feedbackTitle.className = 'text-2xl font-bold mb-2 text-red-600';
-                feedbackIcon.textContent = '❌';
-                feedbackArea.classList.add('border-red-500');
-                
-                let feedbackMessage = currentScenario.feedback;
-
-                if (GAME_STATE.mode === 'survival') {
-                    GAME_STATE.lives--;
-                    updateLivesDisplay();
-                    
-                    livesContainer.classList.add('shake-animation');
-                    setTimeout(() => livesContainer.classList.remove('shake-animation'), 500);
-
-                    if (GAME_STATE.lives <= 0) {
-                        isGameOver = true;
-                        feedbackTitle.textContent = 'Тренинг окончен!';
-                        feedbackMessage += '\n\n💔 К сожалению, попытки закончились.';
-                        
-                        nextBtn.classList.add('hidden');
-                        restartBtn.classList.remove('hidden');
-                        menuBtn.classList.remove('hidden');
-                    } else {
-                         feedbackMessage += `\n\nОсталось попыток: ${GAME_STATE.lives}`;
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f172a',      // Slate-900 (Основной фон)
+                        'dark-ui': '#1e293b',      // Slate-800 (Элементы интерфейса)
+                        'dark-border': '#334155',  // Slate-700 (Границы)
+                        'accent-yellow': '#facc15',// Yellow-400 (Основной акцент - СВОИ)
+                        'accent-cyan': '#06b6d4',  // Cyan-500
+                        'accent-blue': '#3b82f6',  // Blue-500
+                        'accent-purple': '#a855f7',// Purple-500
+                        'accent-red': '#ef4444',   // Red-500
                     }
                 }
-                
-                feedbackText.textContent = feedbackMessage;
             }
-            
-            actionButtonsDiv.classList.add('hidden');
-            feedbackArea.classList.remove('hidden');
-            feedbackArea.classList.add('flex');
         }
     </script>
+</head>
+
+<body
+    class="h-screen w-full overflow-hidden bg-dark-bg text-slate-100 flex flex-col items-center justify-center relative selection:bg-accent-yellow selection:text-dark-bg">
+
+    <div class="fixed inset-0 z-0">
+        <img src="office_bg.png" alt="Office Background" class="w-full h-full object-cover">
+    </div>
+
+    <div id="monitor-screen" class="absolute z-10 overflow-hidden" style="
+            /* Эти значения откалиброваны для точного соответствия темной области office_bg.jpg */
+            top: 0.1%;
+            left: 25.2%;
+            width: 49.4%;
+            height: 64.4%;
+            /* Цвет фона UI для бесшовной интеграции */
+            background-color: #0f172a;
+         ">
+
+        <div id="game-ui" class="hidden flex-col h-full w-full absolute inset-0">
+
+            <header
+                class="p-3 bg-dark-ui/95 border-b border-dark-border shadow-lg flex justify-between items-center z-30 shrink-0 backdrop-blur-sm">
+                <div class="flex items-center gap-4">
+                    <button onclick="confirmExit()" title="Закончить смену"
+                        class="p-2 rounded-lg bg-dark-border hover:bg-slate-600 transition-colors text-slate-300 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <span class="text-sm font-semibold text-slate-400">Статус: <span class="text-green-400">На
+                            смене</span></span>
+                </div>
+
+                <div id="mode-badge"
+                    class="px-3 py-1 rounded-lg text-sm font-semibold uppercase tracking-wider border bg-dark-ui text-slate-400 border-dark-border">
+                    Меню
+                </div>
+
+                <div id="lives-container" class="hidden flex items-center gap-3">
+                    <span class="text-sm font-semibold text-slate-400">Рейтинг:</span>
+                    <div id="hearts" class="flex gap-1 text-2xl">
+                    </div>
+                </div>
+            </header>
+
+            <div id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-4 bg-dark-bg scroll-smooth">
+            </div>
+
+            <div id="typing-indicator" class="hidden p-4 pt-0">
+                <div class="flex items-center gap-2 p-3 rounded-2xl bg-dark-ui shadow-md w-fit">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <div id="action-buttons"
+                class="hidden grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-dark-ui/95 border-t border-dark-border z-40 shrink-0">
+
+                <button onclick="handleChoice('handle')"
+                    class="flex flex-col items-start p-3 bg-dark-bg/50 hover:bg-dark-bg border border-dark-border hover:border-accent-cyan rounded-xl transition-all active:scale-95 group shadow-md">
+                    <span class="text-accent-cyan mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </span>
+                    <span class="text-sm font-semibold text-left">Решить самому</span>
+                    <span class="text-xs text-slate-400 text-left">Техподдержка, Финансы</span>
+                </button>
+
+                <button onclick="handleChoice('distributor')"
+                    class="flex flex-col items-start p-3 bg-dark-bg/50 hover:bg-dark-bg border border-dark-border hover:border-accent-yellow rounded-xl transition-all active:scale-95 group shadow-md">
+                    <span class="text-accent-yellow mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                    </span>
+                    <span class="text-sm font-semibold text-left">В распределятор</span>
+                    <span class="text-xs text-slate-400 text-left">Подключение, перевод на ПСМЗ/ИП</span>
+                </button>
+
+                <button onclick="handleChoice('leader')"
+                    class="flex flex-col items-start p-3 bg-dark-bg/50 hover:bg-dark-bg border border-dark-border hover:border-accent-purple rounded-xl transition-all active:scale-95 group shadow-md">
+                    <span class="text-accent-purple mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.618-3.766z" />
+                        </svg>
+                    </span>
+                    <span class="text-sm font-semibold text-left">Руководителю</span>
+                    <span class="text-xs text-slate-400 text-left">Эскалация, Отток</span>
+                </button>
+
+                <button onclick="handleChoice('deal_negative')"
+                    class="flex flex-col items-start p-3 bg-dark-bg/50 hover:bg-dark-bg border border-dark-border hover:border-accent-red rounded-xl transition-all active:scale-95 group shadow-md">
+                    <span class="text-accent-red mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </span>
+                    <span class="text-sm font-semibold text-left">Сделка / Негатив</span>
+                    <span class="text-xs text-slate-400 text-left">Комиссии, Жалобы, Риски</span>
+                </button>
+            </div>
+
+            <div id="feedback-area"
+                class="hidden absolute inset-0 z-50 bg-dark-bg/95 backdrop-blur-xl flex-col items-center justify-center text-center p-6 animate-bounce-in">
+
+                <div id="feedback-card" class="max-w-md w-full bg-dark-ui p-8 rounded-3xl shadow-2xl border-4">
+                    <div id="feedback-icon" class="text-8xl mb-6 drop-shadow-lg"></div>
+                    <h3 id="feedback-title" class="text-3xl font-bold mb-4"></h3>
+                    <p id="feedback-text" class="text-slate-300 text-lg mb-10 leading-relaxed whitespace-pre-wrap"></p>
+
+                    <button id="next-btn" onclick="loadNextScenario()"
+                        class="w-full bg-gradient-to-r from-accent-cyan to-accent-blue hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-cyan-500/30 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3">
+                        <span>Следующий заказ</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </button>
+
+                    <button id="restart-btn" onclick="startGame(GAME_STATE.mode)"
+                        class="hidden w-full bg-dark-border hover:bg-slate-600 text-white font-bold py-4 rounded-xl border border-dark-border transition-all mt-4 hover:scale-105 active:scale-95">
+                        Начать заново
+                    </button>
+
+                    <button id="menu-btn" onclick="showMainMenu()"
+                        class="hidden w-full bg-transparent hover:bg-dark-border text-slate-400 font-bold py-4 rounded-xl transition-all mt-4 hover:scale-105 active:scale-95">
+                        Главное меню
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <div id="main-menu"
+        class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-dark-bg/95 backdrop-blur-xl transition-opacity duration-500 p-4"
+        style="opacity: 1;">
+
+        <div class="relative mb-10 animate-fade-in">
+            <div class="relative bg-white rounded-full p-1 w-36 h-36 flex items-center justify-center logo-halo">
+                <img src="logo.png" alt="Svoi Logo" class="w-full h-full object-contain rounded-full">
+            </div>
+        </div>
+
+        <div class="text-center mb-12 animate-fade-in" style="animation-delay: 0.15s;">
+            <h1 class="text-6xl font-extrabold tracking-tighter mb-3 text-white">
+                Тренажер <span class="text-accent-yellow">СВОИ</span>
+            </h1>
+            <p class="text-slate-400 text-xl font-light">Обучение распределения в профильные отделы</p>
+        </div>
+
+        <div class="flex flex-col gap-5 w-full max-w-sm animate-fade-in" style="animation-delay: 0.3s;">
+
+            <button onclick="startGame('endless')" style="--glow-color: rgba(6, 182, 212, 0.5);"
+                class="group relative w-full bg-dark-ui/70 hover:bg-dark-ui border border-dark-border hover:border-accent-cyan text-white p-5 rounded-2xl transition-all duration-300 shadow-xl hover-glow overflow-hidden backdrop-blur-sm">
+                <div class="relative flex items-center justify-between">
+                    <div class="text-left">
+                        <p class="font-bold text-xl">Бесконечный режим</p>
+                        <p class="text-sm text-slate-400">Пытайся сколько хочешь</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-accent-cyan" viewBox="0 0 24 24"
+                        fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+            </button>
+
+            <button onclick="startGame('survival')" style="--glow-color: rgba(168, 85, 247, 0.5);"
+                class="group relative w-full bg-dark-ui/70 hover:bg-dark-ui border border-dark-border hover:border-accent-purple text-white p-5 rounded-2xl transition-all duration-300 shadow-xl hover-glow overflow-hidden backdrop-blur-sm">
+                <div class="relative flex items-center justify-between">
+                    <div class="text-left">
+                        <p class="font-bold text-xl">5 попыток</p>
+                        <p class="text-sm text-slate-400">Испытай себя на знания</p>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-accent-purple" fill="none"
+                        viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </button>
+
+        </div>
+    </div>
+    <script src="scenarios.js"></script>
+    <script src="app.js"></script>
+
 </body>
+
 </html>
